@@ -9,4 +9,6 @@ Route::get('/', function () {
     return Inertia::render('Dashboard');
 })->name('dashboard');
 
-
+Route::get('/stocks', function () {
+    return Inertia::render('Stocks');
+})->name('stocks');
