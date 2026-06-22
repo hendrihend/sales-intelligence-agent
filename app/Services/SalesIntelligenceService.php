@@ -3,70 +3,99 @@
 namespace App\Services;
 
 use App\Models\Product;
-use App\Models\AiDiscountSuggestion;
+use App\Models\DeadstockAnalysis;
+use App\Models\DiscountRecommendation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class SalesIntelligenceService
 {
+    /**
+     * Analisis produk deadstock dan buat rekomendasi diskon otomatis.
+     * Produk dianggap deadstock jika:
+     * - Stok > 5
+     * - Tidak ada transaksi dalam 30 hari terakhir
+     */
     public function analyzeDeadstock()
     {
-        // Parameter ambang batas: Produk tidak laku dalam 30 hari terakhir & stok > 5
         $daysThreshold = 30;
         $cutOffDate = Carbon::now()->subDays($daysThreshold);
+        $now = Carbon::now();
 
-        // Ambil produk yang tidak ada di detail transaksi selama 30 hari terakhir
+        // Ambil produk yang stok > 5 dan TIDAK ada di transaction_items
+        // pada transaksi yang terjadi dalam 30 hari terakhir
         $deadstocks = Product::where('stock', '>', 5)
             ->whereNotExists(function ($query) use ($cutOffDate) {
                 $query->select(DB::raw(1))
-                    ->from('transaction_details')
-                    ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
-                    ->whereRaw('transaction_details.product_id = products.id')
-                    ->where('transactions.created_at', '>=', $cutOffDate);
+                    ->from('transaction_items')
+                    ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.id')
+                    ->whereRaw('transaction_items.product_id = products.id')
+                    ->where('transactions.transaction_date', '>=', $cutOffDate);
             })->get();
 
+        $results = [];
+
         foreach ($deadstocks as $product) {
-            // Hitung sudah berapa lama mengendap secara teoritis (menggunakan transaksi terakhir yang tercatat jika ada)
-            $lastSales = DB::table('transaction_details')
-                ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
-                ->where('transaction_details.product_id', $product->id)
-                ->orderBy('transactions.created_at', 'desc')
+            // Cari transaksi terakhir produk ini (kapan terakhir kali laku)
+            $lastSale = DB::connection('pgsql_sales')
+                ->table('transaction_items')
+                ->join('transactions', 'transaction_items.transaction_id', '=', 'transactions.id')
+                ->where('transaction_items.product_id', $product->id)
+                ->orderByDesc('transactions.transaction_date')
                 ->first();
 
-            $daysInactive = $lastSales ? Carbon::parse($lastSales->created_at)->diffInDays(Carbon::now()) : $daysThreshold;
+            $lastSaleDate = $lastSale
+                ? Carbon::parse($lastSale->transaction_date)
+                : Carbon::parse($product->created_at);
 
-            // Logika Penentuan Diskon Pintar (Sederhana Berbasis Aturan)
-            // Makin lama mengendap, diskon naik bertahap, max memotong 50% dari margin profit
-            $profitMargin = $product->selling_price - $product->cost_price;
-            if ($profitMargin <= 0) continue;
+            $daysInactive = (int) $lastSaleDate->diffInDays($now);
 
+            // Hitung total penjualan sepanjang waktu
+            $totalSales = DB::connection('pgsql_sales')
+                ->table('transaction_items')
+                ->where('product_id', $product->id)
+                ->sum('qty');
+
+            // Simpan/update DeadstockAnalysis
+            $analysis = DeadstockAnalysis::updateOrCreate(
+                ['product_id' => $product->id],
+                [
+                    'last_sale_date' => $lastSale ? $lastSale->transaction_date : null,
+                    'total_sales' => (int) $totalSales,
+                    'stock_remaining' => $product->stock,
+                    'status' => 'deadstock',
+                    'analysis_date' => $now,
+                ]
+            );
+
+            // Logika penentuan diskon berdasarkan lama tidak laku
             if ($daysInactive >= 60) {
-                $discountPercent = 30; // Diskon 30% jika > 60 hari mampet
+                $discountPercent = 30;
+                $note = "Produk tidak laku selama {$daysInactive} hari. Diskon agresif 30% disarankan untuk menggerakkan stok.";
             } elseif ($daysInactive >= 45) {
                 $discountPercent = 20;
+                $note = "Produk tidak laku selama {$daysInactive} hari. Diskon moderat 20% disarankan.";
             } else {
                 $discountPercent = 10;
+                $note = "Produk tidak laku selama {$daysInactive} hari. Diskon ringan 10% disarankan untuk menarik pembeli.";
             }
 
-            // Validasi pelindung: Pastikan harga setelah diskon tidak merugi di bawah modal
-            $discountAmount = ($product->selling_price * $discountPercent) / 100;
-            if (($product->selling_price - $discountAmount) < $product->cost_price) {
-                // Jika rugi, set diskon maksimal agar pas dengan harga modal
-                $maxSafeDiscount = (($product->selling_price - $product->cost_price) / $product->selling_price) * 100;
-                $discountPercent = floor($maxSafeDiscount);
-            }
+            // Simpan/update DiscountRecommendation
+            DiscountRecommendation::updateOrCreate(
+                ['deadstock_analysis_id' => $analysis->id],
+                [
+                    'discount_percent' => $discountPercent,
+                    'recommendation_note' => $note,
+                ]
+            );
 
-            if ($discountPercent > 0) {
-                // Simpan atau update saran diskon otomatis ke database
-                AiDiscountSuggestion::updateOrCreate(
-                    ['product_id' => $product->id, 'status' => 'pending'],
-                    [
-                        'days_inactive' => $daysInactive,
-                        'recommended_discount' => $discountPercent,
-                        'expires_at' => Carbon::now()->addDays(7)
-                    ]
-                );
-            }
+            $results[] = [
+                'product' => $product->name,
+                'days_inactive' => $daysInactive,
+                'discount' => $discountPercent . '%',
+            ];
         }
+
+        return $results;
     }
 }

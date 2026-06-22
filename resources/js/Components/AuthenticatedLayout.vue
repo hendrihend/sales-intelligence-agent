@@ -41,8 +41,39 @@ const isSidebarOpen = ref(true);
                 </Link>
 
                 <Link 
-                    href="#" 
-                    class="flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-slate-400 hover:bg-slate-900 hover:text-white"
+                    :href="route('stock')" 
+                    :class="[
+                        'flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                        route().current('stock') 
+                            ? 'bg-emerald-500/10 text-emerald-400 font-medium' 
+                            : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    ]"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    <span>Stock</span>
+                </Link>
+
+                <Link 
+                    :href="route('agent-ai')" 
+                    :class="[
+                        'flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                        route().current('agent-ai') 
+                            ? 'bg-violet-500/10 text-violet-400 font-medium' 
+                            : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    ]"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
+                    <span>Agent AI</span>
+                </Link>
+
+                <Link 
+                    :href="route('transaksi')" 
+                    :class="[
+                        'flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                        route().current('transaksi') 
+                            ? 'bg-violet-500/10 text-violet-400 font-medium' 
+                            : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    ]"    
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span>Transaksi</span>
