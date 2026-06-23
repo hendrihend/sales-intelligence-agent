@@ -40,10 +40,10 @@ const isSidebarOpen = ref(true);
                     <span>Dashboard</span>
                 </Link>
                 <Link 
-                    :href="route('stocks')" 
+                    :href="route('stocks.index')" 
                     :class="[
                         'flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all duration-200',
-                        route().current('stocks') 
+                        route().current('stocks.index') 
                             ? 'bg-emerald-500/10 text-emerald-400 font-medium' 
                             : 'text-slate-400 hover:bg-slate-900 hover:text-white'
                     ]"

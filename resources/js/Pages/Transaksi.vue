@@ -4,11 +4,11 @@ import { Head } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <Head title="Stocks" />
+    <Head title="Transaksi" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Stock Overview</h2>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Transaksi Overview</h2>
         </template>
 
        
