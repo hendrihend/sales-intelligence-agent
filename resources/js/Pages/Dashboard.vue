@@ -311,10 +311,20 @@ const hasData = computed(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 class="font-bold text-xl text-gray-800 leading-tight">Dashboard Overview</h2>
-                    <p class="text-sm text-gray-500 mt-0.5">Ringkasan performa bisnis dari database PostgreSQL.</p>
+                    <p class="text-sm text-gray-500 mt-0.5">Pantau kinerja dan aktivitas toko Anda.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a :href="route('transaksi.export.excel')" class="inline-flex items-center px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-medium rounded-lg transition-colors border border-emerald-200 shadow-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2-2H5a2 2 0 01-2-2z" /></svg>
+                        Export Excel
+                    </a>
+                    <a :href="route('transaksi.export.pdf')" class="inline-flex items-center px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-sm font-medium rounded-lg transition-colors border border-rose-200 shadow-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                        Export PDF
+                    </a>
                 </div>
             </div>
         </template>
@@ -459,7 +469,7 @@ const hasData = computed(() => {
             <div class="flex items-center justify-between mb-5">
                 <div>
                     <h3 class="text-lg font-bold text-gray-800">Aktivitas Terakhir</h3>
-                    <p class="text-sm text-gray-400 mt-0.5">Transaksi terbaru dari database</p>
+                    <!-- <p class="text-sm text-gray-400 mt-0.5">Transaksi terbaru dari database</p> -->
                 </div>
             </div>
             <div v-if="recentTransactions.length > 0" class="divide-y divide-gray-50">
@@ -500,7 +510,7 @@ const hasData = computed(() => {
                     </div>
                     <div>
                         <h3 class="text-lg font-bold text-gray-800">Rekomendasi Diskon AI</h3>
-                        <p class="text-sm text-gray-400 mt-0.5">Saran diskon otomatis untuk produk deadstock</p>
+                        <p class="text-sm text-gray-400 mt-0.5">Saran diskon untuk produk deadstock & stok rendah</p>
                     </div>
                 </div>
                 <span v-if="discountSuggestions.length > 0" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-50 text-violet-600">
@@ -534,8 +544,10 @@ const hasData = computed(() => {
                             <td class="py-3.5 px-3 text-center">
                                 <span :class="[
                                     'text-sm font-semibold',
-                                    item.stock_remaining > 20 ? 'text-red-500' : item.stock_remaining > 10 ? 'text-amber-500' : 'text-gray-600'
-                                ]">{{ item.stock_remaining }}</span>
+                                    item.stock_remaining <= 0 ? 'text-red-600' : item.stock_remaining <= 2 ? 'text-orange-500' : item.stock_remaining < 5 ? 'text-amber-500' : item.stock_remaining > 20 ? 'text-red-500' : 'text-gray-600'
+                                ]">
+                                    {{ item.stock_remaining <= 0 ? 'Habis' : item.stock_remaining }}
+                                </span>
                             </td>
                             <td class="py-3.5 px-3 text-center">
                                 <span v-if="item.days_inactive" :class="[
@@ -561,9 +573,12 @@ const hasData = computed(() => {
                             <td class="py-3.5 px-3">
                                 <span :class="[
                                     'text-xs font-medium px-2 py-1 rounded-full',
-                                    item.status === 'deadstock' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                                    item.status === 'deadstock' ? 'bg-red-50 text-red-600' : '',
+                                    item.status === 'out_of_stock' ? 'bg-gray-800 text-white' : '',
+                                    item.status === 'low_stock' ? 'bg-amber-50 text-amber-600' : '',
+                                    !['deadstock','out_of_stock','low_stock'].includes(item.status) ? 'bg-gray-100 text-gray-600' : ''
                                 ]">
-                                    {{ item.status === 'deadstock' ? 'Deadstock' : item.status }}
+                                    {{ item.status === 'deadstock' ? 'Deadstock' : item.status === 'out_of_stock' ? 'Stok Habis' : item.status === 'low_stock' ? 'Stok Rendah' : item.status }}
                                 </span>
                             </td>
                         </tr>

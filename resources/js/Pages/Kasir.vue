@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/Sidebar.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
     transaction: {
@@ -37,17 +37,36 @@ const searchTransaction = () => {
 };
 
 const isProcessing = ref(false);
+const showConfirmModal = ref(false);
+const selectedMethod = ref('');
+
+const methodLabel = computed(() => {
+    const labels = { cash: 'Tunai (Cash)', debit: 'Kartu Debit/Kredit' };
+    return labels[selectedMethod.value] || selectedMethod.value;
+});
 
 const processPayment = (method) => {
     if (!props.transaction) return;
-    
-    if (confirm(`Konfirmasi pembayaran sebesar Rp ${formatPrice(props.transaction.total)} menggunakan ${method.toUpperCase()}?`)) {
-        isProcessing.value = true;
-        router.post(`/kasir/${props.transaction.id}/pay`, { payment_method: method }, {
-            preserveScroll: true,
-            onFinish: () => isProcessing.value = false
-        });
-    }
+    selectedMethod.value = method;
+    showConfirmModal.value = true;
+};
+
+const cancelPayment = () => {
+    showConfirmModal.value = false;
+    selectedMethod.value = '';
+};
+
+const confirmPayment = () => {
+    if (!props.transaction || !selectedMethod.value) return;
+    isProcessing.value = true;
+    showConfirmModal.value = false;
+    router.post(`/kasir/${props.transaction.id}/pay`, { payment_method: selectedMethod.value }, {
+        preserveScroll: true,
+        onFinish: () => {
+            isProcessing.value = false;
+            selectedMethod.value = '';
+        }
+    });
 };
 
 // Update searchInput when prop changes (in case of back navigation)
@@ -214,6 +233,88 @@ watch(() => props.searchQuery, (newVal) => {
                 </div>
             </transition>
         </div>
+
+        <!-- Payment Confirmation Modal -->
+        <Teleport to="body">
+            <transition name="modal-backdrop">
+                <div v-if="showConfirmModal" class="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm" @click="cancelPayment"></div>
+            </transition>
+            <transition name="modal-content">
+                <div v-if="showConfirmModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4" @click.self="cancelPayment">
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <!-- Modal Header -->
+                        <div :class="[
+                            'p-6 text-white text-center',
+                            selectedMethod === 'cash'
+                                ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                        ]">
+                            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+                                <!-- Cash Icon -->
+                                <svg v-if="selectedMethod === 'cash'" class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <!-- Card Icon -->
+                                <svg v-else class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold">Konfirmasi Pembayaran</h3>
+                            <p class="text-white/80 text-sm mt-1">Pastikan detail pembayaran sudah benar</p>
+                        </div>
+
+                        <!-- Modal Body -->
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center py-3 border-b border-gray-100">
+                                    <span class="text-sm text-gray-500">ID Transaksi</span>
+                                    <span class="font-semibold text-gray-800">#{{ transaction?.formatted_id || transaction?.id }}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-3 border-b border-gray-100">
+                                    <span class="text-sm text-gray-500">Metode Pembayaran</span>
+                                    <span :class="[
+                                        'px-3 py-1 rounded-full text-xs font-bold uppercase',
+                                        selectedMethod === 'cash'
+                                            ? 'bg-emerald-100 text-emerald-700'
+                                            : 'bg-blue-100 text-blue-700'
+                                    ]">{{ methodLabel }}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-3">
+                                    <span class="text-sm text-gray-500">Total Bayar</span>
+                                    <span class="text-2xl font-extrabold text-gray-900">Rp {{ formatPrice(transaction?.total) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal Footer -->
+                        <div class="px-6 pb-6 flex gap-3">
+                            <button
+                                @click="cancelPayment"
+                                class="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                @click="confirmPayment"
+                                :disabled="isProcessing"
+                                :class="[
+                                    'flex-1 px-6 py-3 text-white font-bold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:hover:translate-y-0 flex items-center justify-center gap-2',
+                                    selectedMethod === 'cash'
+                                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                                        : 'bg-gradient-to-r from-blue-500 to-indigo-500'
+                                ]"
+                            >
+                                <svg v-if="isProcessing" class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>{{ isProcessing ? 'Memproses...' : 'Ya, Bayar Sekarang' }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+        </Teleport>
     </AuthenticatedLayout>
 </template>
 
@@ -226,5 +327,31 @@ watch(() => props.searchQuery, (newVal) => {
 .fade-leave-to {
     opacity: 0;
     transform: translateY(10px);
+}
+
+/* Modal Backdrop */
+.modal-backdrop-enter-active,
+.modal-backdrop-leave-active {
+    transition: opacity 0.3s ease;
+}
+.modal-backdrop-enter-from,
+.modal-backdrop-leave-to {
+    opacity: 0;
+}
+
+/* Modal Content */
+.modal-content-enter-active {
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.modal-content-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.modal-content-enter-from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+}
+.modal-content-leave-to {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
 }
 </style>

@@ -5,11 +5,12 @@ import { ref, onMounted, watch, computed } from 'vue';
 
 const page = usePage();
 
-const transactions = ref([]);
-const loading = ref(false);
-
 const props = defineProps({
     products: {
+        type: Array,
+        default: () => [],
+    },
+    recentTransactions: {
         type: Array,
         default: () => [],
     }
@@ -25,6 +26,22 @@ const categories = computed(() => {
 const filteredProducts = computed(() => {
     if (!selectedCategory.value) return props.products;
     return props.products.filter(p => p.category === selectedCategory.value);
+});
+
+// Pagination
+const currentPage = ref(1);
+const perPage = 10;
+
+const totalPages = computed(() => Math.ceil(filteredProducts.value.length / perPage));
+
+const paginatedProducts = computed(() => {
+    const start = (currentPage.value - 1) * perPage;
+    return filteredProducts.value.slice(start, start + perPage);
+});
+
+// Reset page when filter changes
+watch([selectedCategory], () => {
+    currentPage.value = 1;
 });
 
 function productImage(p) {
@@ -77,21 +94,17 @@ async function loadNotifications() {
     } catch (e) { console.error(e); }
 }
 
-async function loadTransactions() {
-    loading.value = true;
-    try {
-        const res = await fetch('/api/transaksi');
-        if (res.ok) {
-            const data = await res.json();
-            transactions.value = data.data || data;
-        } else {
-            console.error('Failed to fetch transactions');
-        }
-    } catch (e) {
-        console.error(e);
-    } finally {
-        loading.value = false;
-    }
+function statusColor(status) {
+    return status === 'lunas' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+}
+
+function statusLabel(status) {
+    return status === 'lunas' ? 'Lunas' : 'Pending';
+}
+
+function paymentLabel(method) {
+    const map = { qris: 'QRIS', cash: 'Tunai', debit: 'Debit/Kredit', unpaid: 'Belum Bayar' };
+    return map[method] || method;
 }
 
 async function submit() {
@@ -163,7 +176,7 @@ function submitCheckout() {
     });
 }
 
-onMounted(() => { loadTransactions(); loadNotifications(); });
+onMounted(() => { loadNotifications(); });
 
 // open checkout by default on larger screens for two-column layout
 onMounted(() => {
@@ -213,54 +226,58 @@ watch(pinned, (v) => {
                         <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
                     </select>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                    <div v-for="p in filteredProducts" :key="p.id" class="bg-gradient-to-br from-gray-50 to-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-emerald-300">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    <div v-for="p in paginatedProducts" :key="p.id" class="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-emerald-300 flex flex-col">
                         <!-- Product Image -->
-                        <div class="relative overflow-hidden bg-gray-100 h-48">
-                            <img :src="productImage(p)" alt="" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" />
-                            <div v-if="p.discount > 0" class="absolute top-2 right-2 bg-violet-600 text-white px-2 py-1 rounded text-xs font-bold shadow-sm">
-                                Diskon -{{ p.discount }}%
+                        <div class="relative overflow-hidden bg-gray-100 h-32">
+                            <img :src="productImage(p)" alt="" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                            <div v-if="p.discount > 0" class="absolute top-1 right-1 bg-violet-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm">
+                                -{{ p.discount }}%
                             </div>
-                            <div v-else class="absolute top-2 left-2 bg-emerald-500 text-white px-2 py-1 rounded text-xs font-semibold">Best Seller</div>
                         </div>
                         
                         <!-- Product Info -->
-                        <div class="p-4">
+                        <div class="p-3 flex flex-col flex-1">
                             <!-- Product Name -->
-                            <div class="font-semibold text-gray-800 mb-4 line-clamp-2 h-12">{{ p.name }}</div>
-                            
-                            <!-- Description -->
-                            <div class="text-xs text-gray-500 mb-2 line-clamp-2 h-8">{{ p.desc }}</div>
+                            <div class="font-semibold text-gray-800 text-xs mb-1 line-clamp-2 h-8">{{ p.name }}</div>
                             
                             <!-- Price & Discount -->
-                            <div class="mb-3">
-                                <div class="text-lg font-bold text-emerald-600">Rp {{ formatPrice(p.price) }}</div>
-                                <div v-if="p.discount > 0" class="text-xs text-gray-400 line-through">Rp {{ formatPrice(p.original_price) }}</div>
-                            </div>
-                            
-                            <!-- Seller & Rating -->
-                            <div class="mb-4 border-t pt-2">
-                                <div class="text-xs text-gray-600 mb-1 truncate">{{ p.seller }}</div>
-                                <div class="flex items-center gap-1">
-                                    <div class="flex text-yellow-400">
-                                        <span v-for="i in 5" :key="i" class="text-xs">★</span>
-                                    </div>
-                                    <span class="text-xs text-gray-600">{{ p.rating }}</span>
-                                    <span class="text-xs text-gray-400">({{ p.reviews }})</span>
-                                </div>
+                            <div class="mb-2">
+                                <div class="text-sm font-bold text-emerald-600">Rp {{ formatPrice(p.price) }}</div>
+                                <div v-if="p.discount > 0" class="text-[10px] text-gray-400 line-through">Rp {{ formatPrice(p.original_price) }}</div>
                             </div>
                             
                             <!-- Add to Cart Button -->
-                            <button @click.prevent="addToCart(p)" class="w-full px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 text-sm">
+                            <button @click.prevent="addToCart(p)" class="mt-auto w-full px-2 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-md font-semibold hover:shadow-md transition-all duration-200 text-xs">
                                 + Keranjang
                             </button>
                         </div>
                     </div>
                 </div>
 
+                <!-- Pagination -->
+                <div v-if="totalPages > 1" class="mt-5 flex items-center justify-between">
+                    <div class="text-xs text-gray-500">
+                        Menampilkan {{ (currentPage - 1) * perPage + 1 }}–{{ Math.min(currentPage * perPage, filteredProducts.length) }} dari {{ filteredProducts.length }} produk
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button @click="currentPage = currentPage - 1" :disabled="currentPage === 1" class="px-3 py-1.5 text-xs font-medium rounded-md border transition-colors" :class="currentPage === 1 ? 'text-gray-300 border-gray-100 cursor-not-allowed' : 'text-gray-600 border-gray-200 hover:bg-gray-50'">
+                            ‹ Prev
+                        </button>
+                        <template v-for="pg in totalPages" :key="pg">
+                            <button @click="currentPage = pg" class="w-8 h-8 text-xs font-medium rounded-md border transition-colors" :class="pg === currentPage ? 'bg-emerald-500 text-white border-emerald-500' : 'text-gray-600 border-gray-200 hover:bg-gray-50'">
+                                {{ pg }}
+                            </button>
+                        </template>
+                        <button @click="currentPage = currentPage + 1" :disabled="currentPage === totalPages" class="px-3 py-1.5 text-xs font-medium rounded-md border transition-colors" :class="currentPage === totalPages ? 'text-gray-300 border-gray-100 cursor-not-allowed' : 'text-gray-600 border-gray-200 hover:bg-gray-50'">
+                            Next ›
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Cart Summary Section -->
-                <div v-if="cart.length > 0" class="mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-lg border border-emerald-200">
-                    <h3 class="font-bold text-gray-800 mb-4">📦 Ringkasan Keranjang Anda</h3>
+                <!-- <div v-if="cart.length > 0" class="mt-8 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-lg border border-emerald-200">
+                    <h3 class="font-bold text-gray-800 mb-4">Ringkasan Keranjang Anda</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div class="bg-white rounded-lg p-4">
                             <div class="text-sm text-gray-600 mb-1">Jumlah Item</div>
@@ -275,7 +292,7 @@ watch(pinned, (v) => {
                             <button @click.prevent="checkoutOpen = true" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-semibold hover:shadow-lg">Lanjut</button>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
 
@@ -283,7 +300,7 @@ watch(pinned, (v) => {
         <transition name="slide-fade">
         <div v-show="checkoutOpen" class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6">
             <div class="flex items-center justify-between mb-6 pb-4 border-b">
-                <h3 class="text-xl font-bold text-gray-800">📝 Form Pengiriman & Pembayaran</h3>
+                <h3 class="text-xl font-bold text-gray-800">Form Pengiriman & Pembayaran</h3>
                 <button @click.prevent="checkoutOpen = false" class="text-2xl text-gray-400 hover:text-gray-600">×</button>
             </div>
 
@@ -309,12 +326,17 @@ watch(pinned, (v) => {
                         <h3 class="font-semibold text-blue-900 mb-3">Daftar Produk yang Dipesan</h3>
                         <div class="space-y-3">
                             <div v-if="cart.length === 0" class="text-sm text-gray-500">Keranjang Anda masih kosong</div>
-                            <div v-for="c in cart" :key="c.id" class="flex justify-between items-center pb-3 border-b last:border-b-0">
+                            <div v-for="(c, index) in cart" :key="c.id" class="flex justify-between items-center pb-3 border-b last:border-b-0 group">
                                 <div class="flex-1">
                                     <div class="font-medium text-gray-800">{{ c.name }}</div>
                                     <div class="text-sm text-gray-500">{{ c.qty }} × Rp {{ formatPrice(c.price) }}</div>
                                 </div>
-                                <div class="font-semibold text-gray-800">Rp {{ formatPrice(c.qty * c.price) }}</div>
+                                <div class="flex items-center gap-4">
+                                    <div class="font-semibold text-gray-800">Rp {{ formatPrice(c.qty * c.price) }}</div>
+                                    <button @click.prevent="removeFromCart(index)" class="text-gray-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Hapus produk">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -363,7 +385,7 @@ watch(pinned, (v) => {
 
                         <div class="space-y-2">
                             <button @click.prevent="submitCheckout" :disabled="cart.length === 0 || !form.payment_method" class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-200 disabled:opacity-50">
-                                Bayar & Simpan Transaksi
+                                Bayar
                             </button>
                             <button @click.prevent="cart = []; checkoutOpen = false" class="w-full px-4 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-all duration-200">
                                 Batalkan
@@ -376,41 +398,72 @@ watch(pinned, (v) => {
         </transition>
         
         <!-- Activities Section -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">Aktivitas Transaksi</h3>
-                <div class="space-y-3">
-                    <div v-if="loading" class="text-sm text-gray-500">Memuat...</div>
-                    <div v-if="!loading && transactions.length === 0" class="text-sm text-gray-500">Data tidak ditemukan. Silakan tambahkan data baru untuk melihat aktivitas terakhir.</div>
-                    <ul v-if="transactions.length" class="space-y-3">
-                        <li v-for="t in transactions" :key="t.id" class="p-4 border rounded-lg hover:bg-gray-50 transition">
-                            <div class="flex justify-between mb-2">
-                                <div class="inline-block px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-xs font-semibold">{{ t.type === 'sale' ? 'Penjualan' : 'Pembelian' }}</div>
-                                <span class="text-xs text-gray-400">{{ new Date(t.created_at).toLocaleDateString('id-ID') }}</span>
-                            </div>
-                            <div class="font-semibold text-gray-800">Rp {{ formatPrice(t.amount) }}</div>
-                            <div class="text-sm text-gray-600 mt-1">{{ t.customer_name }} <span class="text-xs text-gray-400">({{ t.customer_city }})</span></div>
-                            <div class="text-xs text-gray-500 mt-1">{{ t.customer_phone }} · {{ t.customer_email }}</div>
-                        </li>
-                    </ul>
+        <!-- <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Aktivitas Transaksi Terakhir</h3>
+                        <p class="text-xs text-gray-400">5 transaksi paling baru</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">🔔 Notifikasi Pembelian</h3>
-                <div class="space-y-3">
-                    <div v-if="notifications.length === 0" class="text-sm text-gray-500">Belum ada notifikasi pembelian</div>
-                    <ul v-if="notifications.length" class="space-y-3">
-                        <li v-for="n in notifications" :key="n.id" class="p-4 border-l-4 border-emerald-500 bg-emerald-50 rounded-r">
-                            <div class="font-semibold text-gray-800">{{ n.customer_name }}</div>
-                            <div class="text-sm text-gray-600">{{ n.customer_city }}</div>
-                            <div class="text-xs text-gray-500 mt-1">{{ n.customer_phone }} · {{ n.customer_email }}</div>
-                            <div class="text-xs text-gray-400 mt-2">{{ new Date(n.created_at).toLocaleString('id-ID') }}</div>
-                        </li>
-                    </ul>
+            <div v-if="recentTransactions.length === 0" class="p-10 text-center">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                </div>
+                <p class="text-sm text-gray-500 font-medium">Belum ada transaksi</p>
+                <p class="text-xs text-gray-400 mt-1">Transaksi terbaru akan muncul di sini.</p>
+            </div>
+
+            <div v-else class="divide-y divide-gray-50">
+                <div v-for="t in recentTransactions" :key="t.id" class="px-6 py-5 hover:bg-gray-50/50 transition-colors">
+
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-bold text-emerald-600">#{{ t.formatted_id || t.id }}</span>
+                            <span :class="['px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide', statusColor(t.status)]">
+                                {{ statusLabel(t.status) }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-gray-400">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            {{ new Date(t.transaction_date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) }}
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                        <div v-for="item in t.items" :key="item.id" class="flex justify-between items-center py-1.5 text-sm">
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></span>
+                                <span class="text-gray-700 truncate">{{ item.product?.name || 'Produk' }}</span>
+                                <span class="text-gray-400 text-xs flex-shrink-0">×{{ item.qty }}</span>
+                            </div>
+                            <span class="text-gray-600 font-medium ml-3 flex-shrink-0">Rp {{ formatPrice(item.subtotal) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4 text-xs text-gray-400">
+                            <span class="flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                {{ t.cashier?.name || 'Kasir' }}
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                {{ paymentLabel(t.payment_method) }}
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-base font-bold text-gray-800">Rp {{ formatPrice(t.total) }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </AuthenticatedLayout>
 
     <!-- PO / Receipt Popup -->

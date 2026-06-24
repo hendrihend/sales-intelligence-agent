@@ -45,7 +45,9 @@ class TransaksiController extends Controller
             }
 
             // Gunakan gambar dari database jika ada, jika tidak gunakan dummy map
-            $productImage = $product->image ?: ($imageMap[$product->category] ?? 'https://images.unsplash.com/photo-1587829191301-32b86b2b94f5?w=300&h=300&fit=crop');
+            $productImage = $product->image 
+                ? '/images/products/' . $product->image 
+                : ($imageMap[$product->category] ?? 'https://images.unsplash.com/photo-1587829191301-32b86b2b94f5?w=300&h=300&fit=crop');
 
             return [
                 'id'       => $product->id,
@@ -63,8 +65,15 @@ class TransaksiController extends Controller
             ];
         })->sortByDesc('is_ai_recommended')->values();
 
+        // 5 transaksi terakhir untuk Activities Section
+        $recentTransactions = Transaction::with(['items.product', 'cashier'])
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+
         return Inertia::render('Transaksi', [
-            'products' => $products
+            'products' => $products,
+            'recentTransactions' => $recentTransactions,
         ]);
     }
 
@@ -116,5 +125,55 @@ class TransaksiController extends Controller
                 'total' => $total,
             ]
         ]);
+    }
+
+    public function exportExcel()
+    {
+        $transactions = Transaction::with(['items.product', 'cashier'])->orderByDesc('id')->get();
+        
+        $filename = "transactions_export_" . date('Y-m-d_H-i-s') . ".csv";
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$filename",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+        
+        $columns = ['ID Transaksi', 'Tanggal', 'Kasir', 'Total (Rp)', 'Metode Pembayaran', 'Status', 'Detail Item'];
+
+        $callback = function() use($transactions, $columns) {
+            $file = fopen('php://output', 'w');
+            // Tambahkan BOM untuk excel UTF-8
+            fputs($file, "\xEF\xBB\xBF");
+            fputcsv($file, $columns);
+            
+            foreach ($transactions as $t) {
+                $itemsStr = $t->items->map(function($item) {
+                    return ($item->product->name ?? 'Produk') . " (x{$item->qty})";
+                })->implode(', ');
+
+                $row = [
+                    $t->formatted_id ?? $t->id,
+                    $t->transaction_date,
+                    $t->cashier->name ?? '-',
+                    $t->total,
+                    $t->payment_method,
+                    strtoupper($t->status),
+                    $itemsStr
+                ];
+                fputcsv($file, $row);
+            }
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function exportPdf()
+    {
+        $transactions = Transaction::with(['items.product', 'cashier'])->orderByDesc('id')->get();
+        $pdf = app('dompdf.wrapper')->loadView('print.transactions-pdf', compact('transactions'));
+        return $pdf->download('laporan_transaksi.pdf');
     }
 }

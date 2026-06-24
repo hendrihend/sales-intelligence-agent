@@ -27,7 +27,7 @@ const submit = () => {
                 <!-- <img src="/images/logo.png" alt="SwaPartID" class="h-12 object-contain" /> -->
             </div>
             
-            <h2 class="text-3xl font-bold text-gray-900 mb-2">Selamat Datang!</h2>
+            <h2 class="text-3xl font-bold text-gray-900 mb-2">Selamat Datang</h2>
             <p class="text-gray-500 font-medium">Silakan login untuk mengakses dashboard.</p>
         </div>
 
@@ -56,7 +56,7 @@ const submit = () => {
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <label for="password" class="block text-sm font-semibold text-gray-700">Password</label>
-                    <Link href="#" class="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition-colors">Lupa password?</Link>
+                    <!-- <Link href="#" class="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition-colors">Lupa password?</Link> -->
                 </div>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

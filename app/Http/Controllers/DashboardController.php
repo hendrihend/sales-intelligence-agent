@@ -241,6 +241,58 @@ class DashboardController extends Controller
             ->toArray();
 
         // ============================
+        // LOW STOCK ALERTS (stok < 5)
+        // ============================
+
+        // Ambil product_id yang sudah ada di discountSuggestions agar tidak duplikat
+        $existingProductIds = DiscountRecommendation::with('deadstockAnalysis')
+            ->get()
+            ->map(fn($rec) => $rec->deadstockAnalysis?->product_id)
+            ->filter()
+            ->toArray();
+
+        $lowStockAlerts = Product::where('stock', '<', 5)
+            ->whereNotIn('id', $existingProductIds)
+            ->orderBy('stock')
+            ->limit(10)
+            ->get()
+            ->map(function ($product) {
+                // Saran diskon berdasarkan level stok
+                $discount = 0;
+                $note = '';
+                if ($product->stock <= 0) {
+                    $discount = 50;
+                    $note = 'Stok habis — diskon besar untuk clearance atau restock alert.';
+                } elseif ($product->stock <= 2) {
+                    $discount = 30;
+                    $note = 'Stok sangat rendah — diskon untuk mempercepat penjualan sisa stok.';
+                } else {
+                    $discount = 15;
+                    $note = 'Stok menipis — diskon ringan untuk menghabiskan stok sebelum habis.';
+                }
+
+                $originalPrice = (float) $product->price;
+                $discountedPrice = $originalPrice - ($originalPrice * $discount / 100);
+
+                return [
+                    'id' => 'low-' . $product->id,
+                    'product_name' => $product->name,
+                    'category' => $product->category ?? 'Lainnya',
+                    'stock_remaining' => $product->stock,
+                    'days_inactive' => null,
+                    'discount_percent' => $discount,
+                    'original_price' => 'Rp ' . number_format($originalPrice, 0, ',', '.'),
+                    'discounted_price' => 'Rp ' . number_format($discountedPrice, 0, ',', '.'),
+                    'note' => $note,
+                    'status' => $product->stock <= 0 ? 'out_of_stock' : 'low_stock',
+                ];
+            })
+            ->toArray();
+
+        // Gabungkan discount suggestions dan low stock alerts
+        $allSuggestions = array_merge($discountSuggestions, $lowStockAlerts);
+
+        // ============================
         // SEND TO FRONTEND
         // ============================
 
@@ -297,7 +349,7 @@ class DashboardController extends Controller
             ],
             'topProducts' => $topProducts,
             'recentTransactions' => $recentTransactions,
-            'discountSuggestions' => $discountSuggestions,
+            'discountSuggestions' => $allSuggestions,
         ]);
     }
 }
