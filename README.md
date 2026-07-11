@@ -1,13 +1,24 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Sales Intelligence Agent
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Summary
+Aplikasi ini dirancang untuk membantu pemilik toko atau tim operasional memantau performa penjualan, mengelola stok, dan mendapatkan rekomendasi diskon secara lebih cerdas. Sistem menggabungkan data transaksi, informasi produk, dan analisis stok dalam satu pengalaman yang mudah dipantau.
 
-## About Laravel
+## Stack / Teknis
+- Bahasa pemrograman: PHP dengan Laravel sebagai backend, JavaScript dengan Vue 3 untuk antarmuka, serta Tailwind CSS dan Vite untuk tampilan dan build frontend.
+- AI Recommendation: sistem saat ini menggunakan logika rekomendasi internal untuk mendeteksi produk deadstock dan menyarankan diskon, dengan potensi integrasi ke API OpenAI untuk menghasilkan insight dan rekomendasi yang lebih natural.
+- Database: data disimpan dan diolah melalui database relasional, dengan koneksi Laravel ke sumber data penjualan dan produk untuk mendukung transaksi, stok, dan analisis.
+
+## Aspek Non-Teknis
+- Target pengguna: pemilik toko, admin, dan tim operasional yang membutuhkan visibilitas cepat terhadap penjualan dan stok.
+- Nilai bisnis: membantu mempercepat keputusan promosi, mengurangi risiko stok menumpuk, dan meningkatkan efisiensi pengelolaan produk.
+
+## Flow Aplikasi (Garis Besar)
+1. Pengguna membuka dashboard untuk melihat ringkasan penjualan, stok, dan status produk.
+2. Data transaksi dan produk diproses dari aktivitas penjualan serta pengelolaan stok.
+3. Sistem menganalisis produk yang lama tidak terjual atau cenderung deadstock.
+4. Rekomendasi diskon dan informasi penjualan ditampilkan untuk membantu keputusan promosi.
+5. Proses transaksi dapat dilakukan secara langsung, lalu data tersebut akan memengaruhi stok dan laporan yang tampil di dashboard.
+
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 

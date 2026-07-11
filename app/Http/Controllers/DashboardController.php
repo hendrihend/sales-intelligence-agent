@@ -261,7 +261,7 @@ class DashboardController extends Controller
                 $discount = 0;
                 $note = '';
                 if ($product->stock <= 0) {
-                    $discount = 50;
+                    $discount = 0;
                     $note = 'Stok habis — diskon besar untuk clearance atau restock alert.';
                 } elseif ($product->stock <= 2) {
                     $discount = 30;
