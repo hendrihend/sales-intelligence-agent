@@ -4,7 +4,7 @@ Sales Intelligence Agent adalah aplikasi kasir pintar berbasis web yang tidak ha
 
 ## Stack Teknologi
 - **Bahasa Pemrograman & Framework**: PHP (Laravel) untuk backend, JavaScript (Vue.js + Inertia.js) untuk frontend, dan TailwindCSS untuk styling.
-- **AI Recommendation**: Terintegrasi dengan **OpenAI API** untuk memproses data analisis *deadstock* dan menghasilkan rekomendasi diskon persentase serta strategi penjualan yang optimal.
+- **AI Recommendation**: Terintegrasi dengan **AI** untuk memproses data analisis *deadstock* dan menghasilkan rekomendasi diskon persentase serta strategi penjualan yang optimal.
 - **Database**: Menggunakan **Database API** (PostgreSQL/SQLite) untuk penyimpanan dan pengelolaan data penjualan serta inventaris barang secara terpusat.
 
 ## Flow Aplikasi (Garis Besar)
